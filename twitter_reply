@@ -1,0 +1,79 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import time
+import pandas as pd
+import os
+
+# Path to ChromeDriver executable
+chrome_driver_path = '/Users/stephaniesadowski/Downloads/chromedriver-mac-arm64/chromedriver'
+
+# Hardcode the URL of the specific Tweet
+url = 'https://twitter.com/RWSstudios/status/1744024247318565109'
+
+# Set up ChromeDriver 
+service = Service(chrome_driver_path)
+
+# Initialize the WebDriver
+driver = webdriver.Chrome(service=service)
+
+# Open Twitter login page
+driver.get('https://twitter.com/login')
+time.sleep(10)  # Wait for the login page to load
+
+# Pause for manual login
+input("Please log in to Twitter manually and then press Enter here to continue...")
+
+# Open the Tweet
+try:
+    driver.get(url)
+    time.sleep(5)  # Wait for the page to load
+except Exception as e:
+    print(f"Error opening the URL: {e}")
+    driver.quit()
+    exit()
+
+# Set a maximum number of scrolls to prevent infinite loop
+max_scrolls = 20
+scrolls = 0
+
+# Scroll to load replies
+while scrolls < max_scrolls:
+    driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.END)
+    time.sleep(2)
+    scrolls += 1
+    print(f"Scrolled {scrolls} times")
+
+# Extract replies
+replies = driver.find_elements(By.XPATH, "//article[@data-testid='tweet']")
+
+reply_data = []
+
+print(f"Found {len(replies)} replies")
+
+for reply in replies:
+    try:
+        text_element = reply.find_element(By.XPATH, ".//div[@data-testid='tweetText']")
+        text = text_element.text
+        print(f"Reply: {text}")
+        reply_data.append({"Reply": text})
+    except Exception as e:
+        print(f"Error: {e}")
+
+# Close the WebDriver
+driver.quit()
+
+# Check if any replies were extracted
+if not reply_data:
+    print("No replies were extracted. Please check the XPaths and ensure the Twitter post is public.")
+
+# Convert to df
+df = pd.DataFrame(reply_data)
+
+# save the CSV in the Documents folder
+documents_path = os.path.expanduser('~/Documents/twitter_replies.csv')
+
+# Save to CSV
+df.to_csv(documents_path, index=False)
+print(f"Replies have been collected and saved to {documents_path}")
